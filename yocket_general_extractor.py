@@ -11,13 +11,16 @@ global_constants = None
 
 
 def get_constants():
+    """Return a dictionary containing all input constraints for scraping.
+    All attributes except URL can be changed as per requirement"""
+
     dict_constants = dict()
     dict_constants['LOGIN_URL'] = "https://yocket.in/account/login"
     dict_constants['PAST_RESULTS_URL'] = "https://yocket.in/recent-admits-rejects?page="
     dict_constants['ALL_RESULTS_URL'] = "https://yocket.in/profiles/find/matching-admits-and-rejects?page="
     dict_constants['HOME_PAGE'] = 'https://yocket.in/'
     dict_constants['NUMBER_PAGE_TO_SCRAPE_FIRST'] = 1
-    dict_constants['NUMBER_PAGE_TO_SCRAPE_LAST'] = 1000
+    dict_constants['NUMBER_PAGE_TO_SCRAPE_LAST'] = 2
     dict_constants['MINIMUM_GPA'] = 7.5
     dict_constants['MINIMUM_GRE'] = 320
     dict_constants['MINIMUM_TOEFL'] = 100
@@ -26,6 +29,11 @@ def get_constants():
 
 
 def get_gpa(current_bucket_gpa):
+    """Return a float value.
+    Computed grade is obtained by getting numeric/floating
+    part of string and then converting it into GPA if it is a
+    percentage by a factor of 10."""
+
     computed_grade = re.findall(r"\d+[.]?\d*", current_bucket_gpa)
     if len(computed_grade) > 0:
         computed_grade = computed_grade[0]
@@ -36,6 +44,11 @@ def get_gpa(current_bucket_gpa):
 
 
 def get_gre_or_toefl(current_bucket_marks):
+    """Return a int value.
+    Computed marks obtained by getting integer part of string
+    Marks for IELTS will be converted to zero or be filtered at later
+    stage."""
+
     computed_marks = current_bucket_marks.replace("\n", "").strip()
     try:
         int(computed_marks)
@@ -45,6 +58,10 @@ def get_gre_or_toefl(current_bucket_marks):
 
 
 def get_workex_months(current_bucket_workex):
+    """Return a int value.
+    Computed workex is obtained by getting numeric
+    part of string which is equivalent to the number of months."""
+
     computed_workex = re.findall(r"\d+", current_bucket_workex)
     if len(computed_workex) > 0:
         return computed_workex[0]
@@ -52,8 +69,8 @@ def get_workex_months(current_bucket_workex):
 
 
 def filter_criteria_met(current_gre, current_gpa, current_toefl):
-
-    computer_science_keywords = ['computer', 'artificial', 'machine', 'cyber', 'network', 'security', 'data']
+    """Return a boolean value.
+    If either of minimum constraints not met then False returned."""
 
     if int(current_gre) < global_constants['MINIMUM_GRE']:
         return False
@@ -64,6 +81,9 @@ def filter_criteria_met(current_gre, current_gpa, current_toefl):
     return True
 
 def split_bucket_university_course(current_bucket_university_course):
+    """Return a 2 tuple list(university, course).
+    Split performed on keywords which can be course starting names."""
+
     course_separator_delimiter = ['computer', 'artificial', 'cyber', 'network', 'data']
 
     for delimiter in course_separator_delimiter:
@@ -75,7 +95,12 @@ def split_bucket_university_course(current_bucket_university_course):
 
 
 def export_to_file(final_data_fetch):
-    # Write data to excel for Excel related information
+    """Export decision data to local files.
+
+    First file created is excel file in readable format
+    Second file is binary file which can be used for analytics."""
+
+    # Column names for data
     header_fields = ['Course', 'University', 'GPA', 'GRE', 'TOEFL', 'Work Experience', 'UG Course', 'UG College','Admit Status']
     with xlsxwriter.Workbook('yocket_data.xlsx') as workbook:
         worksheet = workbook.add_worksheet()
@@ -87,11 +112,14 @@ def export_to_file(final_data_fetch):
             worksheet.write_row(row_num+1, 0, data)
 
     # Store as binary data
-    with open('C:/Users/i349223/PycharmProjects/SignatureFeatureExtraction/yocket_data.data', 'wb') as f:
+    with open('yocket_data.data', 'wb') as f:
         pickle.dump(final_data_fetch, f)
 
 
 def perform_scraping(current_session):
+    """Trigger relevant HTTP calls to get requisite data
+    and perform actual scraping"""
+
     # List Array storing all relevant decision information
     final_data_fetch = []
     pagination_index = global_constants['NUMBER_PAGE_TO_SCRAPE_FIRST']
@@ -105,8 +133,10 @@ def perform_scraping(current_session):
 
         # Get Nodes containing individual decisions for each page(approx 20 per page)
         decision_buckets = tree.xpath('//*[@class="row"]/div[@class="col-sm-6"]/div[@class="panel panel-warning"]/div[@class="panel-body"]')
+
+        # If decision buckets are empty, captcha page has been encountered
         if len(decision_buckets) == 0:
-            print("Capcha Time")
+            print("Captcha Time")
             time.sleep(120)
             continue
 
@@ -143,7 +173,7 @@ def perform_scraping(current_session):
                                                  current_workex, current_ug_course, current_ug_college, current_admit_status])
 
         # Add sleep time to allow for web scraping in undetected manner
-        sleep_delay = random.choice([3, 4, 5, 6])
+        sleep_delay = random.choice([0, 1, 2, 3])
         time.sleep(sleep_delay)
         pagination_index += 1
 
