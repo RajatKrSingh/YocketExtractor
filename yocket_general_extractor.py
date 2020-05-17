@@ -84,7 +84,7 @@ def split_bucket_university_course(current_bucket_university_course):
     """Return a 2 tuple list(university, course).
     Split performed on keywords which can be course starting names."""
 
-    course_separator_delimiter = ['computer', 'artificial', 'cyber', 'network', 'data']
+    course_separator_delimiter = ['computer', 'artificial', 'cyber', 'network', 'data', 'machine']
 
     for delimiter in course_separator_delimiter:
         separated_list = current_bucket_university_course.split(delimiter,1)
