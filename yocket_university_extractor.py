@@ -6,6 +6,7 @@ from lxml import html as lxml_html
 import random
 import pickle
 import xlsxwriter
+import re
 
 global_constants = None
 
@@ -23,6 +24,7 @@ def get_constants():
     dict_university_course_url['Georgia_General'] = 'https://yocket.in/applications-admits-rejects/18-georgia-institute-of-technology/'
     dict_university_course_url['CMU_General'] = 'https://yocket.in/applications-admits-rejects/9-carnegie-mellon-university/'
     dict_university_course_url['CMU_ML'] = 'https://yocket.in/applications-admits-rejects/835-carnegie-mellon-university/'
+    dict_university_course_url['CMU_MCDS'] = 'https://yocket.in/applications-admits-rejects/55949-carnegie-mellon-university/'
     dict_university_course_url['UCSD_General'] = 'https://yocket.in/applications-admits-rejects/219-university-of-california-san-diego/'
     dict_university_course_url['CalTech_GeneralPhD'] = 'https://yocket.in/applications-admits-rejects/226-california-institute-of-technology/'
     dict_university_course_url['UTA_General'] = 'https://yocket.in/applications-admits-rejects/46152-university-of-texas-austin/'
@@ -65,7 +67,7 @@ def export_to_file(final_data_fetch, university_course):
     Second file is binary file which can be used for analytics."""
 
     # Column names for data
-    header_fields = ['Course', 'University', 'GPA', 'GRE', 'TOEFL', 'Work Experience', 'UG Course', 'UG College', 'Admit Status',
+    header_fields = ['Course', 'University', 'GPA', 'GRE Quant', 'GRE Verbal', 'TOEFL', 'Work Experience', 'UG Course', 'UG College', 'Admit Status',
                      'Papers', 'Profile']
     with xlsxwriter.Workbook('C:/Users/i349223/Downloads/YocketCode/ResultDocuments/' + university_course + '.xlsx') as workbook:
         worksheet = workbook.add_worksheet()
@@ -79,6 +81,15 @@ def export_to_file(final_data_fetch, university_course):
     # Store as binary data
     with open('C:/Users/i349223/Downloads/YocketCode/ResultDocuments/' + university_course + '.data', 'wb') as f:
         pickle.dump(final_data_fetch, f)
+
+
+def extract_gre_partial_score(input_text):
+    """Input is text containing numeric component containing GRE Quant or Verbal Score
+    Output is the value if existing"""
+    computed_partial_gre_score = re.findall(r"\d+", input_text)
+    if computed_partial_gre_score is not None:
+        return computed_partial_gre_score[0]
+    return 0
 
 
 def perform_scraping(current_session):
@@ -98,7 +109,6 @@ def perform_scraping(current_session):
             while pagination_index < 300:
                 print("Page:", course_value + global_constants[decision_code] + global_constants['pagination_suffix'] + str(pagination_index),
                       " Collected records:", len(final_data_fetch))
-
                 # Get relevant admit-reject page based on pagination value
                 result = current_session.get(course_value + global_constants[decision_code] + global_constants['pagination_suffix'] +
                                              str(pagination_index), headers=dict(referer=course_value))
@@ -173,8 +183,16 @@ def perform_scraping(current_session):
                                     current_papers = ""
                                 else:
                                     current_papers = current_papers.replace("\n", "").strip()
-                                final_data_fetch.append([current_course, current_university, current_gpa, current_gre, current_toefl,
-                                                         current_workex, current_ug_course, current_ug_college, current_admit_status,
+
+                                profile_gre_details_bucket = (profile_tree.xpath('//div[@id="yocket_app"]/div[@class="col-sm-6"]/div['
+                                                                                 '@class="col-sm-12"]/div[@class="row text-center"]'))[0]
+                                current_gre_quant = profile_gre_details_bucket.xpath('./div[1]/h4[1]/span[1]')
+                                if len(current_gre_quant) > 0:
+                                    current_gre_quant = extract_gre_partial_score(current_gre_quant[0].text)
+                                    current_gre_verbal = extract_gre_partial_score(((profile_gre_details_bucket.xpath('./div[1]/h4[1]/span[1]/br[1]'))
+                                                    [0]).tail)
+                                    final_data_fetch.append([current_course, current_university, current_gpa, current_gre_quant, current_gre_verbal,
+                                                         current_toefl, current_workex, current_ug_course, current_ug_college, current_admit_status,
                                                          current_papers, profile_page_path])
 
                 pagination_index += 1
